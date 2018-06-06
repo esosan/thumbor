@@ -18,7 +18,8 @@ from six.moves.urllib.parse import quote, unquote, urlparse
 from thumbor.loaders import LoaderResult
 from thumbor.utils import logger
 from tornado.concurrent import return_future
-
+from subprocess import Popen, PIPE
+from os.path import exists
 
 def encode_url(url):
     if url == unquote(url):
@@ -106,11 +107,33 @@ def return_contents(response, url, callback, context, req_start=None):
             context.metrics.timing(
                 'original_image.time_info.bytes_per_second',
                 len(response.body) / response.time_info['total'])
+
         result.buffer = response.body
         result.metadata.update(response.headers)
         context.metrics.incr('original_image.response_bytes', len(
             response.body))
+        
+        if context.config.NORMALIZE_TO_72DPI and context.config.CONVERT_PATH:
+            if not exists(context.config.CONVERT_PATH):
+                logger.warn(
+                    'imagemagick/convert enabled but binary CONVERT_PATH does not exist')
+            else:
+                if "jpeg" in result.metadata['Content-Type']:
+                    command = [
+                        context.config.CONVERT_PATH + ' - -density 72,72 -strip - ',
+                    ]
+    
+                    normalize_dpi_cmd = Popen(command, stdin=PIPE, stdout=PIPE,
+                                        stderr=PIPE, close_fds=True, shell=True)
 
+                    normalize_dpi_stdout, normalize_dpi_stderr = normalize_dpi_cmd.communicate(input=response.body)
+            
+                    if normalize_dpi_cmd.returncode != 0:
+                        logger.warn('dpi normalization finished with non-zero return code (%d): %s'
+                                    % (normalize_dpi_cmd.returncode, normalize_dpi_stderr))
+                    else:
+                        result.buffer = normalize_dpi_stdout
+        
     callback(result)
 
 
