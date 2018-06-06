@@ -401,6 +401,11 @@ Config.define(
 Config.define('MGNLOGIN_USER', None, 'Magnolia Author user (readonly)')
 Config.define('MGNLOGIN_PASS', None, 'Magnolia Author user (readonly)')
 
+# JPG DPI NORMALIZATION
+Config.define('NORMALIZE_TO_72DPI', False, 'Normalize JPG to 72dpi')
+Config.define('CONVERT_PATH', None, 'Imagemagick/convert path')
+
+
 def generate_config():
     config.generate_config()
 
