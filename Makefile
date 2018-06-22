@@ -4,7 +4,7 @@ run: compile_ext
 	@thumbor -l debug -d
 
 setup:
-    ifeq ($(OS), xx)
+    ifeq ($(OS), Darwin)
 	@$(MAKE) setup_mac
     else
 	@$(MAKE) setup_ubuntu
@@ -12,7 +12,7 @@ setup:
 	@$(MAKE) setup_python
 
 setup_ubuntu:
-	@sudo apt-get install -y imagemagick webp coreutils gifsicle libjpeg8-dev \
+	@sudo apt-get install -y imagemagick webp coreutils gifsicle libvpx4 \
                              libvpx-dev libimage-exiftool-perl libcairo2-dev \
                              ffmpeg libcurl4-openssl-dev libffi-dev \
                              python-dev python3-dev libssl-dev  python-webcolors zlib1g-dev libjpeg-dev libpng-dev \
@@ -22,7 +22,7 @@ setup_python:
 	@pip install -e .[tests]
 
 setup_mac:
-	@brew tap homebrew/science
+	@brew tap brewsci/science
 	@brew update
 	@brew install imagemagick webp opencv coreutils gifsicle libvpx exiftool cairo
 	@brew install ffmpeg --with-libvpx
@@ -151,5 +151,6 @@ sample_images:
 	convert tests/fixtures/filters/PNG_transparency_demonstration_1.png -dither None -colors 256 tests/fixtures/images/paletted-transparent.png
 	cp tests/fixtures/filters/source.jpg tests/fixtures/filters/800px-Katherine_Maher.jpg
 	cp tests/fixtures/images/Giunchedi%2C_Filippo_January_2015_01.jpg tests/fixtures/filters/Giunchedi%2C_Filippo_January_2015_01.jpg
+	cp tests/fixtures/filters/watermark.png tests/fixtures/images/watermark.png
 	# the watermark filter's logic is too complicated to reproduce with IM, the watermark test images can't be generated here
 	# similarly, the noise, colorize, redeye and fill filters generate output too unique to be reproduce with IM and can't be generated here

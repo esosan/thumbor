@@ -65,6 +65,13 @@ Config.define('PILLOW_PRESERVE_INDEXED_MODE',
               'Indicates if final image should preserve indexed mode (P or 1) of original image', 'Imaging')
 Config.define('AUTO_WEBP', False, 'Specifies whether WebP format should be used automatically if the request accepts it '
               '(via Accept header)', 'Imaging')
+Config.define('AUTO_PNG_TO_JPG', False, 'Specifies whether a PNG image should be used automatically if the png image has '
+              'no transparency (via alpha layer). '
+              'WARNING: Depending on case, this is not a good deal. '
+              'This transformation maybe causes distortions or the size of image can increase. '
+              'Images with texts, for example, the result image maybe will be distorced. '
+              'Dark images, for example, the size of result image maybe will be bigger. '
+              'You have to evaluate the majority of your use cases to take a decision about the usage of this conf.', 'Imaging')
 Config.define('SVG_DPI', 150,
               'Specify the ratio between 1in and 1px for SVG images. This is only used when'
               'rasterizing SVG images having their size units in cm or inches.', 'Imaging')
@@ -302,6 +309,13 @@ Config.define(
 )
 
 Config.define(
+    'JPEGTRAN_SCANS_FILE',
+    '',
+    'Path for the progressive scans file to use with jpegtran optimizer. Implies progressive jpeg output',
+    'Optimizers'
+)
+
+Config.define(
     'FFMPEG_PATH',
     '/usr/local/bin/ffmpeg',
     'Path for the ffmpeg binary used to generate gifv(h.264)',
@@ -390,6 +404,16 @@ Config.define(
     'The url signer thumbor should use to verify url signatures.' +
     'This must be the full name of a python module ' +
     '(python must be able to import it)', 'Extensibility'
+)
+
+# SERVER
+Config.define(
+    'MAX_WAIT_SECONDS_BEFORE_SERVER_SHUTDOWN', 0,
+    'The amount of time to wait before shutting down the server, i.e. stop accepting requests.', 'Server'
+)
+Config.define(
+    'MAX_WAIT_SECONDS_BEFORE_IO_SHUTDOWN', 0,
+    'The amount of time to waut before shutting down all io, after the server has been stopped', 'Server'
 )
 
 Config.define(
