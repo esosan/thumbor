@@ -16,23 +16,16 @@ from io import BytesIO
 
 from PIL import Image, ImageFile, ImageDraw, ImageSequence, JpegImagePlugin
 
-try:
-    import cv2
-    import numpy
-except ImportError:
-    cv = None
-    numpy = None
-
 from thumbor.engines import BaseEngine
 from thumbor.engines.extensions.pil import GifWriter
-from thumbor.utils import logger, deprecated, EXTENSION
+from thumbor.utils import logger, deprecated
 
 try:
     from thumbor.ext.filters import _composite
+
     FILTERS_AVAILABLE = True
 except ImportError:
     FILTERS_AVAILABLE = False
-
 
 FORMATS = {
     '.tif': 'PNG',  # serve tif as png
@@ -46,6 +39,10 @@ FORMATS = {
 ImageFile.MAXBLOCK = 2 ** 25
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+DecompressionBombExceptions = (Image.DecompressionBombWarning,)
+if hasattr(Image, 'DecompressionBombError'):
+    DecompressionBombExceptions += (Image.DecompressionBombError,)
+
 
 class Engine(BaseEngine):
     def __init__(self, context):
@@ -54,8 +51,11 @@ class Engine(BaseEngine):
         self.qtables = None
         self.original_mode = None
 
-        if self.context and self.context.config.MAX_PIXELS:
-            Image.MAX_IMAGE_PIXELS = self.context.config.MAX_PIXELS
+        try:
+            if self.context.config.MAX_PIXELS is None or int(self.context.config.MAX_PIXELS):
+                Image.MAX_IMAGE_PIXELS = self.context.config.MAX_PIXELS
+        except (AttributeError, TypeError, ValueError):  # invalid type
+            logger.info('MAX_PIXELS config variable set to invalid type. Has to be int on None')
 
     def gen_image(self, size, color):
         if color == 'transparent':
@@ -66,7 +66,7 @@ class Engine(BaseEngine):
     def create_image(self, buffer):
         try:
             img = Image.open(BytesIO(buffer))
-        except Image.DecompressionBombWarning as e:
+        except DecompressionBombExceptions as e:
             logger.warning("[PILEngine] create_image failed: {0}".format(e))
             return None
         self.icc_profile = img.info.get('icc_profile')
@@ -126,8 +126,6 @@ class Engine(BaseEngine):
                 # convert() figures out RGB or RGBA based on palette used
                 target_mode = None
             self.image = self.image.convert(mode=target_mode)
-            # Workaround for pillow < 4.3.0. See https://github.com/python-pillow/Pillow/issues/2702
-            self.image.palette = None
 
         size = (int(width), int(height))
         # Tell image loader what target size we want (only JPG for a moment)
@@ -255,6 +253,7 @@ class Engine(BaseEngine):
 
             if ext in ['.png', '.gif'] and self.image.mode == 'CMYK':
                 self.image = self.image.convert('RGBA')
+
             self.image.format = FORMATS.get(ext, FORMATS[self.get_default_extension()])
             self.image.save(img_buffer, self.image.format, **options)
         except IOError:
@@ -313,35 +312,6 @@ class Engine(BaseEngine):
 
         return results
 
-    def convert_tif_to_png(self, buffer):
-        if not cv2:
-            msg = """[PILEngine] convert_tif_to_png failed: opencv not imported"""
-            logger.error(msg)
-            return buffer
-        if not numpy:
-            msg = """[PILEngine] convert_tif_to_png failed: opencv not imported"""
-            logger.error(msg)
-            return buffer
-
-        img = cv2.imdecode(numpy.fromstring(buffer, dtype='uint16'), -1)
-        buffer = cv2.imencode('.png', img)[1].tostring()
-
-        mime = self.get_mimetype(buffer)
-        self.extension = EXTENSION.get(mime, '.jpg')
-        return buffer
-
-    def load(self, buffer, extension):
-        self.extension = extension
-
-        if extension is None:
-            mime = self.get_mimetype(buffer)
-            self.extension = EXTENSION.get(mime, '.jpg')
-
-        if self.extension == '.tif':  # Pillow does not support 16bit per channel TIFF images
-            buffer = self.convert_tif_to_png(buffer)
-
-        super(Engine, self).load(buffer, self.extension)
-
     @deprecated("Use image_data_as_rgb instead.")
     def get_image_data(self):
         return self.image.tobytes()
@@ -372,6 +342,14 @@ class Engine(BaseEngine):
         if update_image:
             self.image = image
         return image
+
+    def has_transparency(self):
+        has_transparency = 'A' in self.image.mode or 'transparency' in self.image.info
+        if has_transparency:
+            # If the image has alpha channel,
+            # we check for any pixels that are not opaque (255)
+            has_transparency = min(self.image.convert('RGBA').getchannel('A').getextrema()) < 255
+        return has_transparency
 
     def paste(self, other_engine, pos, merge=True):
         if merge and not FILTERS_AVAILABLE:

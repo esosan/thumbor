@@ -10,6 +10,13 @@ In order to get a commented configuration file, just run:
 
     thumbor-config > ./thumbor.conf
 
+Override config through environment variable
+-----------------------------------------------
+
+It is possible overide **string configs** through environment variables.
+This is possible because thumbor uses `derpconf <https://github.com/globocom/derpconf>`__
+to abstract loading configuration and derpconf allows this.
+
 Extensibility Section
 ---------------------
 
@@ -291,6 +298,22 @@ automatically if the request comes with an "Accept" header that
 specifies that the browser supports "image/webp".
 
 i.e.: ``AUTO_WEBP = True``
+
+AUTO\_PNG\_TO\_JPG
+~~~~~~~~~~
+
+This option indicates whether thumbor should transform PNG images
+automatically to JPEG. If the image is a PNG without transparency and
+the numpy dependency is installed, thumbor will transform from png to jpeg.
+In the most of cases the image size will decrease.
+
+WARNING: Depending on case, this is not a good deal. This transformation
+maybe causes distortions or the size of image can increase.
+Images with texts, for example, the result image maybe will be distorced.
+Dark images, for example, the size of result image maybe will be bigger.
+You have to evaluate the majority of your use cases to take a decision about the usage of this conf.
+
+i.e.: ``AUTO_PNG_TO_JPG = True``
 
 Queueing - Redis
 ----------------

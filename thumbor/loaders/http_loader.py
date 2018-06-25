@@ -21,6 +21,7 @@ from tornado.concurrent import return_future
 from subprocess import Popen, PIPE
 from os.path import exists
 
+
 def encode_url(url):
     if url == unquote(url):
         return quote(url.encode('utf-8'), safe='~@#$&()*!+=:;,.?/\'')
@@ -52,23 +53,23 @@ def validate(context, url, normalize_url_func=_normalize_url):
             forwarded_proto = context.request_handler.request.headers['X-Forwarded-Proto']
     url = normalize_url_func(url, forwarded_proto)
     res = urlparse(url)
-
+    
     if not res.hostname:
         return False
-
+    
     if not context.config.ALLOWED_SOURCES:
         return True
-
+    
     for pattern in context.config.ALLOWED_SOURCES:
         if isinstance(pattern, re._pattern_type):
             match = url
         else:
             pattern = '^%s$' % pattern
             match = res.hostname
-
+        
         if re.match(pattern, match):
             return True
-
+    
     return False
 
 
@@ -80,7 +81,7 @@ def return_contents(response, url, callback, context, req_start=None):
             'original_image.fetch.{0}.{1}'.format(response.code, res.netloc),
             (finish - req_start).total_seconds() * 1000,
         )
-
+    
     result = LoaderResult()
     context.metrics.incr('original_image.status.' + str(response.code))
     if response.error:
@@ -90,14 +91,14 @@ def return_contents(response, url, callback, context, req_start=None):
             result.error = LoaderResult.ERROR_TIMEOUT
         else:
             result.error = LoaderResult.ERROR_NOT_FOUND
-
+        
         logger.warn(u"ERROR retrieving image {0}: {1}".format(
             url, str(response.error)))
-
+    
     elif response.body is None or len(response.body) == 0:
         result.successful = False
         result.error = LoaderResult.ERROR_UPSTREAM
-
+        
         logger.warn(u"ERROR retrieving image {0}: Empty response.".format(url))
     else:
         if response.time_info:
@@ -107,7 +108,7 @@ def return_contents(response, url, callback, context, req_start=None):
             context.metrics.timing(
                 'original_image.time_info.bytes_per_second',
                 len(response.body) / response.time_info['total'])
-
+        
         result.buffer = response.body
         result.metadata.update(response.headers)
         context.metrics.incr('original_image.response_bytes', len(
@@ -123,19 +124,19 @@ def return_contents(response, url, callback, context, req_start=None):
                         command = [
                             context.config.CONVERT_PATH + ' - -density 72,72 -strip - ',
                         ]
-        
+                        
                         normalize_dpi_cmd = Popen(command, stdin=PIPE, stdout=PIPE,
-                                            stderr=PIPE, close_fds=True, shell=True)
-    
+                                                  stderr=PIPE, close_fds=True, shell=True)
+                        
                         normalize_dpi_stdout, normalize_dpi_stderr = normalize_dpi_cmd.communicate(input=response.body)
-                
+                        
                         if normalize_dpi_cmd.returncode != 0:
                             logger.warn('dpi normalization finished with non-zero return code (%d): %s'
                                         % (normalize_dpi_cmd.returncode, normalize_dpi_stderr))
                         else:
                             result.buffer = normalize_dpi_stdout
                 except KeyError:
-                    pass
+                    logger.warn('Content-Type KeyError on %s' % url)
     callback(result)
 
 
@@ -152,12 +153,12 @@ def load_sync(context, url, callback, normalize_url_func):
     else:
         http_client_implementation = None  # default
         prepare_curl_callback = None
-
+    
     tornado.httpclient.AsyncHTTPClient.configure(
         http_client_implementation,
         max_clients=context.config.HTTP_LOADER_MAX_CLIENTS)
     client = tornado.httpclient.AsyncHTTPClient()
-
+    
     user_agent = None
     headers = {}
     if context.config.HTTP_LOADER_FORWARD_ALL_HEADERS:
@@ -172,11 +173,11 @@ def load_sync(context, url, callback, normalize_url_func):
                 if header_key in context.request_handler.request.headers:
                     headers[
                         header_key] = context.request_handler.request.headers[
-                            header_key]
-
+                        header_key]
+    
     if user_agent is None and 'User-Agent' not in headers:
         user_agent = context.config.HTTP_LOADER_DEFAULT_USER_AGENT
-
+    
     url = normalize_url_func(url)
     req = tornado.httpclient.HTTPRequest(
         url=url,
@@ -195,7 +196,7 @@ def load_sync(context, url, callback, normalize_url_func):
         client_cert=encode(context.config.HTTP_LOADER_CLIENT_CERT),
         validate_cert=context.config.HTTP_LOADER_VALIDATE_CERTS,
         prepare_curl_callback=prepare_curl_callback)
-
+    
     start = datetime.datetime.now()
     client.fetch(
         req,
@@ -214,15 +215,15 @@ def encode(string):
 def _get_prepare_curl_callback(config):
     if config.HTTP_LOADER_CURL_LOW_SPEED_TIME == 0 or config.HTTP_LOADER_CURL_LOW_SPEED_LIMIT == 0:
         return None
-
+    
     class CurlOpts:
         def __init__(self, config):
             self.config = config
-
+        
         def prepare_curl_callback(self, curl):
             curl.setopt(curl.LOW_SPEED_TIME,
                         self.config.HTTP_LOADER_CURL_LOW_SPEED_TIME)
             curl.setopt(curl.LOW_SPEED_LIMIT,
                         self.config.HTTP_LOADER_CURL_LOW_SPEED_LIMIT)
-
+    
     return CurlOpts(config).prepare_curl_callback
