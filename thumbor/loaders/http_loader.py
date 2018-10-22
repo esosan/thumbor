@@ -145,7 +145,8 @@ def load(context, url, callback, normalize_url_func=_normalize_url):
     load_sync(context, url, callback, normalize_url_func)
 
 
-def load_sync(context, url, callback, normalize_url_func):
+def load_sync(context, url, callback,
+              normalize_url_func):
     using_proxy = context.config.HTTP_LOADER_PROXY_HOST and context.config.HTTP_LOADER_PROXY_PORT
     if using_proxy or context.config.HTTP_LOADER_CURL_ASYNC_HTTP_CLIENT:
         http_client_implementation = 'tornado.curl_httpclient.CurlAsyncHTTPClient'
@@ -177,7 +178,11 @@ def load_sync(context, url, callback, normalize_url_func):
     
     if user_agent is None and 'User-Agent' not in headers:
         user_agent = context.config.HTTP_LOADER_DEFAULT_USER_AGENT
-    
+
+    if not url.startswith("http"):
+        if context.request_handler.request.headers['X-Forwarded-Proto']:
+            url = '%s://%s' % (context.request_handler.request.headers['X-Forwarded-Proto'], url)
+        
     url = normalize_url_func(url)
     req = tornado.httpclient.HTTPRequest(
         url=url,
