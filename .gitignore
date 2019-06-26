@@ -18,6 +18,7 @@ nohup.out
 .vscode
 *.iml
 opencv
+thumbor.conf
 
 # Debian packaging
 /debsetup.py
