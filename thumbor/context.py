@@ -123,6 +123,7 @@ class RequestParameters:
                  adaptive=False,
                  full=False,
                  fit_in=False,
+                 stretch=False,
                  width=0,
                  height=0,
                  horizontal_flip=False,
@@ -142,7 +143,8 @@ class RequestParameters:
                  hash=None,
                  accepts_webp=False,
                  request=None,
-                 max_age=None,):
+                 max_age=None,
+                 auto_png_to_jpg=None):
 
         self.debug = bool(debug)
         self.meta = bool(meta)
@@ -171,6 +173,7 @@ class RequestParameters:
         self.adaptive = bool(adaptive)
         self.full = bool(full)
         self.fit_in = bool(fit_in)
+        self.stretch = bool(stretch)
 
         self.width = width == "orig" and "orig" or self.int_or_0(width)
         self.height = height == "orig" and "orig" or self.int_or_0(height)
@@ -202,6 +205,7 @@ class RequestParameters:
         self.accepts_webp = accepts_webp
         self.max_bytes = None
         self.max_age = max_age
+        self.auto_png_to_jpg = auto_png_to_jpg
 
         if request:
             self.url = request.path
